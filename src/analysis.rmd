@@ -1,0 +1,121 @@
+---
+title: "Crowdflower Analysis"
+author: "Dong Nguyen"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Analysis of the paper "Comparing Automatic and Human Evaluation of Local Explanations for Text Classification", Nguyen, NAACL 2008
+
+
+
+## Load the data and print statistics
+
+
+```{r read_data}
+rationales_data<-read.csv("../experiments/rationales/rationales_cf_responses.csv")
+dim(rationales_data)
+length(unique(rationales_data$worker_id))
+mean(table(rationales_data$worker_id))
+sd(table(rationales_data$worker_id))
+
+news_data<-read.csv("../experiments/news/news_cf_responses.csv")
+dim(news_data)
+length(unique(news_data$worker_id))
+mean(table(news_data$worker_id))
+sd(table(news_data$worker_id))
+```
+
+## Confidence
+```{r confidence}
+round_mean <- function(x) round(mean(x),3)
+aggregate(i_am_confident_in_my_answer~method, data=rationales_data, round_mean)
+aggregate(i_am_confident_in_my_answer~method, data=news_data, round_mean)
+
+cor.test(rationales_data$i_am_confident_in_my_answer, rationales_data$time_spent, method="spearman")
+cor.test(news_data$i_am_confident_in_my_answer, news_data$time_spent, method="spearman")
+
+aggregate(i_am_confident_in_my_answer~method + num_words + prediction_type, data=news_data, round_mean)
+
+aggregate(i_am_confident_in_my_answer~method + num_words + prediction_type, data=rationales_data, round_mean)
+```
+
+## Time spent
+```{r time}
+aggregate(time_spent~ prediction_type, data=rationales_data, round_mean)
+aggregate(time_spent~ prediction_type, data=news_data, round_mean)
+```
+
+## Accuracy
+```{r accuracy}
+round_mean <- function(x) round(mean(x),3)
+aggregate(correct~method, data=rationales_data, round_mean)
+aggregate(correct~method, data=news_data, round_mean)
+
+aggregate(correct~method + num_words + prediction_type, data=news_data, round_mean)
+
+aggregate(correct~method + num_words + prediction_type, data=rationales_data, round_mean)
+
+```
+
+## Counts
+```{r counts}
+library(dplyr)
+options(dplyr.print_max = 1e9)
+print(dplyr::count_(news_data, vars = c('method', 'num_words', 'prediction_type')))
+print(dplyr::count_(rationales_data, vars = c('method', 'num_words', 'prediction_type')))
+
+```
+
+## Noise
+```{r noise}
+library(dplyr)
+# read in the instance identifiers and the aopc scores for the noisy samples
+rationales_data_noise_eval<-read.csv("../experiments/rationales/rationales_with_noise_eval.csv")
+aggregate(pert_curve_for_noise~noise, data=rationales_data_noise_eval, mean)
+
+rationales_data_noise<-read.csv("../experiments/rationales/rationales_cf_responses_with_noise.csv")
+aggregate(correct~noise + prediction_type, data=rationales_data_noise, round_mean)
+aggregate(i_am_confident_in_my_answer~noise + prediction_type, data=rationales_data_noise, round_mean)
+
+print(dplyr::count_(rationales_data_noise, vars = c('noise',  'prediction_type')))
+```
+
+## Automatic vs human
+```{r automatic_human}
+news_data <- read.csv("../experiments/news/overall_accuracy_norm_switchpoint.txt")
+cor.test(news_data$conf, news_data$acc, method="spearman")
+rationales_data <- read.csv("../experiments/rationales/overall_accuracy_norm_switchpoint.txt")
+cor.test(rationales_data$conf, rationales_data$acc, method="spearman")
+
+
+
+library(stargazer)
+lm_model <- lm(acc ~ norm_switchpoint + conf + prediction_type, data=rationales_data)
+summary(lm_model)
+stargazer(lm_model, title="Results", align=TRUE, single.row=TRUE)
+
+lm_model <- lm(acc ~ norm_switchpoint + conf + prediction_type, data=news_data)
+summary(lm_model)
+stargazer(lm_model, title="Results", align=TRUE, single.row=TRUE)
+
+news_data <- read.csv("../experiments/news/overall_accuracy_pert_curve_for.txt")
+cor.test(news_data$conf, news_data$acc, method="spearman")
+rationales_data <- read.csv("../experiments/rationales/overall_accuracy_pert_curve_for.txt")
+cor.test(rationales_data$conf, rationales_data$acc, method="spearman")
+
+
+
+lm_model <- lm(acc ~ pert_curve_for + conf + prediction_type, data=rationales_data)
+summary(lm_model)
+stargazer(lm_model, title="Results", align=TRUE, single.row=TRUE)
+
+lm_model <- lm(acc ~ pert_curve_for + conf + prediction_type, data=news_data)
+summary(lm_model)
+stargazer(lm_model, title="Results", align=TRUE, single.row=TRUE)
+
+```
